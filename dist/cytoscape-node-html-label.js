@@ -20,6 +20,7 @@
             var node = _a.node, _b = _a.position, position = _b === void 0 ? null : _b, _c = _a.data, data = _c === void 0 ? null : _c;
             this.updateParams(params);
             this._node = node;
+            this._data = data;
             this.initStyles(params.cssClass);
             if (data) {
                 this.updateData(data);
@@ -46,6 +47,7 @@
             this.tpl = tpl;
         };
         LabelElement.prototype.updateData = function (data) {
+            this._data = data;
             while (this._node.firstChild) {
                 this._node.removeChild(this._node.firstChild);
             }
@@ -59,6 +61,9 @@
         };
         LabelElement.prototype.getNode = function () {
             return this._node;
+        };
+        LabelElement.prototype.getData = function () {
+            return this._data;
         };
         LabelElement.prototype.updatePosition = function (pos) {
             this._renderPosition(pos);
@@ -96,13 +101,31 @@
             if (payload === void 0) { payload = {}; }
             var cur = this._elements[id];
             if (cur) {
+                var oldData = cur.getData();
+                var newOrder = payload.data && typeof payload.data.order === 'number' ? payload.data.order : undefined;
+                var oldOrder = oldData && typeof oldData.order === 'number' ? oldData.order : undefined;
                 cur.updateParams(param);
                 cur.updateData(payload.data);
                 cur.updatePosition(payload.position);
+                if (newOrder !== oldOrder) {
+                    var nodeElem = cur.getNode();
+                    this._node.removeChild(nodeElem);
+                    if (typeof newOrder === 'number') {
+                        this._insertElementAtOrder(nodeElem, newOrder);
+                    }
+                    else {
+                        this._node.appendChild(nodeElem);
+                    }
+                }
             }
             else {
                 var nodeElem = document.createElement("div");
-                this._node.appendChild(nodeElem);
+                if (payload.data && typeof payload.data.order === 'number') {
+                    this._insertElementAtOrder(nodeElem, payload.data.order);
+                }
+                else {
+                    this._node.appendChild(nodeElem);
+                }
                 this._elements[id] = new LabelElement({
                     node: nodeElem,
                     data: payload.data,
@@ -134,6 +157,39 @@
             stl.msTransformOrigin = origin;
             stl.transformOrigin = origin;
         };
+        LabelContainer.prototype._insertElementAtOrder = function (nodeElem, order) {
+            var children = this._node.children;
+            var insertIndex = children.length;
+            for (var i = 0; i < children.length; i++) {
+                var child = children[i];
+                var childId = this._getElementIdByNode(child);
+                if (childId) {
+                    var childElement = this._elements[childId];
+                    var childData = this._getElementData(childElement);
+                    if (childData && typeof childData.order === 'number' && childData.order > order) {
+                        insertIndex = i;
+                        break;
+                    }
+                }
+            }
+            if (insertIndex >= children.length) {
+                this._node.appendChild(nodeElem);
+            }
+            else {
+                this._node.insertBefore(nodeElem, children[insertIndex]);
+            }
+        };
+        LabelContainer.prototype._getElementIdByNode = function (node) {
+            for (var id in this._elements) {
+                if (this._elements[id].getNode() === node) {
+                    return id;
+                }
+            }
+            return null;
+        };
+        LabelContainer.prototype._getElementData = function (labelElement) {
+            return labelElement.getData();
+        };
         return LabelContainer;
     }());
     function cyNodeHtmlLabel(_cy, params, options) {
@@ -161,7 +217,7 @@
             }
             var stl = _titlesContainer.style;
             stl.position = 'absolute';
-            stl['z-index'] = 10;
+            stl.zIndex = '10';
             stl.width = '500px';
             stl.margin = '0px';
             stl.padding = '0px';
@@ -169,7 +225,7 @@
             stl.outline = '0px';
             stl.outline = '0px';
             if (options && options.enablePointerEvents !== true) {
-                stl['pointer-events'] = 'none';
+                stl.pointerEvents = 'none';
             }
             _cyCanvas.parentNode.appendChild(_titlesContainer);
             return new LabelContainer(_titlesContainer);

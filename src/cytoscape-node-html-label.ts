@@ -67,6 +67,7 @@ interface CytoscapeContainerParams {
     private _position: number[];
     private _node: HTMLElement;
     private _align: [number, number, number, number];
+    private _data: any; // Store data reference for order checking
 
     constructor({
                   node,
@@ -77,6 +78,7 @@ interface CytoscapeContainerParams {
 
       this.updateParams(params);
       this._node = node;
+      this._data = data; // Store data reference
 
       this.initStyles(params.cssClass);
 
@@ -117,6 +119,8 @@ interface CytoscapeContainerParams {
     }
 
     updateData(data: any) {
+      this._data = data; // Update stored data reference
+      
       while (this._node.firstChild) {
         this._node.removeChild(this._node.firstChild);
       }
@@ -133,6 +137,10 @@ interface CytoscapeContainerParams {
 
     getNode(): HTMLElement {
       return this._node;
+    }
+
+    getData(): any {
+      return this._data;
     }
 
     updatePosition(pos: ICytoscapeNodeHtmlPosition) {
@@ -183,12 +191,35 @@ interface CytoscapeContainerParams {
     addOrUpdateElem(id: string, param: CytoscapeNodeHtmlParams, payload: { data?: any, position?: ICytoscapeNodeHtmlPosition } = {}) {
       const cur = this._elements[id];
       if (cur) {
+        const oldData = cur.getData();
+        const newOrder = payload.data && typeof payload.data.order === 'number' ? payload.data.order : undefined;
+        const oldOrder = oldData && typeof oldData.order === 'number' ? oldData.order : undefined;
+        
         cur.updateParams(param);
         cur.updateData(payload.data);
         cur.updatePosition(payload.position);
+        
+        // Check if order has changed and reorder if necessary
+        if (newOrder !== oldOrder) {
+          const nodeElem = cur.getNode();
+          this._node.removeChild(nodeElem);
+          
+          if (typeof newOrder === 'number') {
+            this._insertElementAtOrder(nodeElem, newOrder);
+          } else {
+            this._node.appendChild(nodeElem);
+          }
+        }
       } else {
         const nodeElem = document.createElement("div");
-        this._node.appendChild(nodeElem);
+        
+        // Check if data has an order attribute to determine insertion position
+        if (payload.data && typeof payload.data.order === 'number') {
+          this._insertElementAtOrder(nodeElem, payload.data.order);
+        } else {
+          // Default behavior: append to the end
+          this._node.appendChild(nodeElem);
+        }
 
         this._elements[id] = new LabelElement({
           node: nodeElem,
@@ -224,6 +255,52 @@ interface CytoscapeContainerParams {
       stl.msTransformOrigin = origin;
       stl.transformOrigin = origin;
     }
+
+    private _insertElementAtOrder(nodeElem: HTMLElement, order: number) {
+      const children = this._node.children;
+      let insertIndex = children.length; // Default to end if no ordered position found
+      
+      // Find the correct insertion point based on order
+      // Elements with same order value will be inserted after existing ones (stable sort)
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i] as HTMLElement;
+        const childId = this._getElementIdByNode(child);
+        
+        if (childId) {
+          const childElement = this._elements[childId];
+          const childData = this._getElementData(childElement);
+          
+          // Insert before the first element with a strictly higher order
+          // This ensures elements with same order maintain insertion order
+          if (childData && typeof childData.order === 'number' && childData.order > order) {
+            insertIndex = i;
+            break;
+          }
+        }
+      }
+      
+      // Insert at the determined position
+      if (insertIndex >= children.length) {
+        this._node.appendChild(nodeElem);
+      } else {
+        this._node.insertBefore(nodeElem, children[insertIndex]);
+      }
+    }
+
+    private _getElementIdByNode(node: HTMLElement): string | null {
+      // Find element ID by searching through the elements hash table
+      for (const id in this._elements) {
+        if (this._elements[id].getNode() === node) {
+          return id;
+        }
+      }
+      return null;
+    }
+
+    private _getElementData(labelElement: LabelElement): any {
+      // Access the data from a LabelElement using the getter method
+      return labelElement.getData();
+    }
   }
 
   function cyNodeHtmlLabel(_cy: any, params: CytoscapeNodeHtmlParams[], options?: CytoscapeContainerParams) {
@@ -256,7 +333,7 @@ interface CytoscapeContainerParams {
 
       const stl = _titlesContainer.style;
       stl.position = 'absolute';
-      stl['z-index'] = 10;
+      (stl as any).zIndex = '10';
       stl.width = '500px';
       stl.margin = '0px';
       stl.padding = '0px';
@@ -265,7 +342,7 @@ interface CytoscapeContainerParams {
       stl.outline = '0px';
 
       if (options && options.enablePointerEvents !== true) {
-        stl['pointer-events'] = 'none';
+        (stl as any).pointerEvents = 'none';
       }
 
       _cyCanvas.parentNode.appendChild(_titlesContainer);
