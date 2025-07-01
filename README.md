@@ -13,6 +13,7 @@ Demo: https://kaluginserg.github.io/cytoscape-node-html-label/
 ## Features
 - optimized for high performance with high number of nodes, for smooth panning and zooming.
 - customizable labels with different templates.
+- **order attribute support** - control the insertion order of label elements in the DOM using an `order` attribute in node data. See [ORDER_FEATURE.md](ORDER_FEATURE.md) for detailed documentation.
 
 ## Dependencies
 
@@ -69,6 +70,19 @@ cyInstance.nodeHtmlLabel([
   }
 ]);
 ```
+
+### Order Attribute
+
+You can control the DOM insertion order of labels by adding an `order` attribute to your node data:
+
+```js
+// Nodes with order attributes
+{ group: "nodes", data: { id: 'node1', name: 'Second', order: 2 }},
+{ group: "nodes", data: { id: 'node2', name: 'First', order: 1 }},
+{ group: "nodes", data: { id: 'node3', name: 'Last' }} // no order - appears last
+```
+
+Labels will be inserted in numerical order (1, 2, 3...), with elements having no order attribute appearing last. See [ORDER_FEATURE.md](ORDER_FEATURE.md) for complete documentation.
 
 To make links clickable inside your labels, you need to pass `enablePointerEvents: true` as the 3rd argument to `nodeHtmlLabel`:
 

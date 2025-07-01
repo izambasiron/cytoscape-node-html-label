@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order Feature - Comprehensive Test</title>
+    <script src="libs/cytoscape.min.js"></script>
+    <script src="dist/cytoscape-node-html-label.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #cy { width: 100%; height: 250px; border: 1px solid #ccc; margin-bottom: 20px; }
+        .test-label { 
+            background: rgba(255, 255, 255, 0.9); 
+            border: 1px solid #ddd; 
+            border-radius: 3px; 
+            padding: 2px 5px; 
+            font-size: 11px; 
+            margin: 1px 0;
+            text-align: center; 
+        }
+        .numeric { background-color: #ccffcc; }
+        .no-order { background-color: #ffcccc; }
+        .invalid { background-color: #ffffcc; }
+        #results { margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Order Feature - Comprehensive Test</h1>
+    <p>Testing various order scenarios including duplicates, invalid values, and mixed types.</p>
+    
+    <div id="cy"></div>
+    
+    <div id="results">
+        <h3>Test Results:</h3>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: [
+                    // Valid numeric orders (including duplicates and zero)
+                    { group: 'nodes', data: { id: 'A', name: 'A', order: 0 }},
+                    { group: 'nodes', data: { id: 'B', name: 'B', order: 1 }},
+                    { group: 'nodes', data: { id: 'C', name: 'C', order: 1 }}, // duplicate
+                    { group: 'nodes', data: { id: 'D', name: 'D', order: 2 }},
+                    { group: 'nodes', data: { id: 'E', name: 'E', order: 0 }}, // duplicate zero
+                    
+                    // Invalid order values (should appear at end)
+                    { group: 'nodes', data: { id: 'F', name: 'F', order: "1" }}, // string
+                    { group: 'nodes', data: { id: 'G', name: 'G', order: null }}, // null
+                    { group: 'nodes', data: { id: 'H', name: 'H', order: undefined }}, // undefined
+                    { group: 'nodes', data: { id: 'I', name: 'I', order: {} }}, // object
+                    { group: 'nodes', data: { id: 'J', name: 'J', order: [] }}, // array
+                    
+                    // No order property
+                    { group: 'nodes', data: { id: 'K', name: 'K' }}, // no order property
+                    
+                    // More valid numeric orders
+                    { group: 'nodes', data: { id: 'L', name: 'L', order: 3 }}
+                ],
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': '#666',
+                            'label': 'data(name)',
+                            'width': 25,
+                            'height': 25,
+                            'font-size': '10px'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'grid',
+                    cols: 6,
+                    rows: 2,
+                    padding: 15
+                }
+            });
+
+            cy.nodeHtmlLabel([{
+                query: 'node',
+                cssClass: 'test-label',
+                valign: 'bottom',
+                valignBox: 'top',
+                tpl: function(data) {
+                    var isNumeric = typeof data.order === 'number';
+                    var hasOrder = data.hasOwnProperty('order');
+                    var cssClass = isNumeric ? 'numeric' : (hasOrder ? 'invalid' : 'no-order');
+                    
+                    var orderText = isNumeric ? 
+                        '(' + data.order + ')' : 
+                        (hasOrder ? '(' + typeof data.order + ')' : '(none)');
+                    
+                    return '<div class="' + cssClass + '">' + 
+                           data.name + orderText + 
+                           '</div>';
+                }
+            }]);
+
+            // Check the actual DOM order after a short delay
+            setTimeout(function() {
+                var container = document.querySelector('[class^="cy-node-html"]');
+                if (container) {
+                    var labels = container.querySelectorAll('.test-label');
+                    var actualOrder = Array.from(labels).map(function(label) {
+                        return label.textContent;
+                    });
+                    
+                    var expected = 'A(0), E(0), B(1), C(1), D(2), L(3), F(string), G(object), H(object), I(object), J(object), K(none)';
+                    var actual = actualOrder.join(', ');
+                    
+                    var isCorrect = actual === expected;
+                    
+                    document.getElementById('output').innerHTML = 
+                        '<p><strong>Expected Order:</strong><br>' + expected + '</p>' +
+                        '<p><strong>Actual Order:</strong><br>' + actual + '</p>' +
+                        '<p><strong>Result:</strong> <span style="color: ' + (isCorrect ? 'green' : 'red') + '">' +
+                        (isCorrect ? '✓ PASS' : '✗ FAIL') + '</span></p>' +
+                        '<p><strong>Legend:</strong><br>' +
+                        '<span class="numeric" style="padding: 2px;">Green = Valid numeric order</span><br>' +
+                        '<span class="invalid" style="padding: 2px;">Yellow = Invalid order value</span><br>' +
+                        '<span class="no-order" style="padding: 2px;">Red = No order property</span></p>';
+                }
+            }, 200);
+        });
+    </script>
+</body>
+</html>
