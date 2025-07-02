@@ -182,14 +182,18 @@ interface CytoscapeContainerParams {
   class LabelContainer {
     private _elements: HashTableElements;
     private _node: HTMLElement;
+    private _cy: any;
 
-    constructor(node: HTMLElement) {
+    constructor(node: HTMLElement, cy: any) {
       this._node = node;
       this._elements = <HashTableElements>{};
+      this._cy = cy;
     }
 
     addOrUpdateElem(id: string, param: CytoscapeNodeHtmlParams, payload: { data?: any, position?: ICytoscapeNodeHtmlPosition } = {}) {
       const cur = this._elements[id];
+      const isUpdate = !!cur;
+      
       if (cur) {
         const oldData = cur.getData();
         const newOrder = payload.data && typeof payload.data.order === 'number' ? payload.data.order : undefined;
@@ -227,6 +231,15 @@ interface CytoscapeContainerParams {
           position: payload.position
         }, param);
       }
+      
+      // Emit custom event
+      this._cy.emit('htmlLabelUpdated', {
+        id: id,
+        isUpdate: isUpdate,
+        data: payload.data,
+        position: payload.position,
+        node: this._elements[id].getNode()
+      });
     }
 
     removeElemById(id: string) {
@@ -347,7 +360,7 @@ interface CytoscapeContainerParams {
 
       _cyCanvas.parentNode.appendChild(_titlesContainer);
 
-      return new LabelContainer(_titlesContainer);
+      return new LabelContainer(_titlesContainer, _cy);
     }
 
     function createNodesCyHandler({cy}: ICyEventObject) {

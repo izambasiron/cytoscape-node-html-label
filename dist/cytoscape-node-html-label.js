@@ -93,13 +93,15 @@
         return LabelElement;
     }());
     var LabelContainer = (function () {
-        function LabelContainer(node) {
+        function LabelContainer(node, cy) {
             this._node = node;
             this._elements = {};
+            this._cy = cy;
         }
         LabelContainer.prototype.addOrUpdateElem = function (id, param, payload) {
             if (payload === void 0) { payload = {}; }
             var cur = this._elements[id];
+            var isUpdate = !!cur;
             if (cur) {
                 var oldData = cur.getData();
                 var newOrder = payload.data && typeof payload.data.order === 'number' ? payload.data.order : undefined;
@@ -132,6 +134,13 @@
                     position: payload.position
                 }, param);
             }
+            this._cy.emit('htmlLabelUpdated', {
+                id: id,
+                isUpdate: isUpdate,
+                data: payload.data,
+                position: payload.position,
+                node: this._elements[id].getNode()
+            });
         };
         LabelContainer.prototype.removeElemById = function (id) {
             if (this._elements[id]) {
@@ -228,7 +237,7 @@
                 stl.pointerEvents = 'none';
             }
             _cyCanvas.parentNode.appendChild(_titlesContainer);
-            return new LabelContainer(_titlesContainer);
+            return new LabelContainer(_titlesContainer, _cy);
         }
         function createNodesCyHandler(_a) {
             var cy = _a.cy;

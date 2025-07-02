@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML Label Updated Event Test</title>
+    <script src="libs/cytoscape.min.js"></script>
+    <script src="dist/cytoscape-node-html-label.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #cy {
+            width: 600px;
+            height: 400px;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+        .label {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 2px 5px;
+            font-size: 12px;
+        }
+        #events {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>HTML Label Updated Event Test</h1>
+    <p>This test demonstrates the new 'htmlLabelUpdated' event that fires when labels are added or updated.</p>
+    
+    <div id="cy"></div>
+    
+    <h3>Event Log:</h3>
+    <div id="events"></div>
+    
+    <button onclick="addNode()">Add New Node</button>
+    <button onclick="updateNodeData()">Update Node Data</button>
+    <button onclick="clearEvents()">Clear Events</button>
+
+    <script>
+        let nodeCounter = 4;
+        let eventCounter = 0;
+        const eventsDiv = document.getElementById('events');
+
+        function logEvent(message) {
+            eventCounter++;
+            const timestamp = new Date().toLocaleTimeString();
+            eventsDiv.innerHTML += `<div><strong>#${eventCounter}</strong> [${timestamp}] ${message}</div>`;
+            eventsDiv.scrollTop = eventsDiv.scrollHeight;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const cy = cytoscape({
+                container: document.getElementById('cy'),
+                layout: { name: 'grid', cols: 3 },
+                elements: [
+                    {data: {id: 'node1', name: 'Node 1', order: 1}},
+                    {data: {id: 'node2', name: 'Node 2', order: 2}},
+                    {data: {id: 'node3', name: 'Node 3'}}
+                ]
+            });
+
+            // Listen for the custom htmlLabelUpdated event
+            cy.on('htmlLabelUpdated', function(event) {
+                const eventData = event.detail || event;
+                const isUpdate = eventData.isUpdate ? 'Updated' : 'Added';
+                const nodeName = eventData.data ? eventData.data.name || eventData.id : eventData.id;
+                const order = eventData.data && eventData.data.order ? ` (order: ${eventData.data.order})` : '';
+                
+                logEvent(`${isUpdate} HTML label for "${nodeName}"${order}`);
+                console.log('htmlLabelUpdated event:', eventData);
+            });
+
+            // Initialize the plugin
+            cy.nodeHtmlLabel([{
+                query: 'node',
+                tpl: function (data) {
+                    return `<div class="label">${data.name || data.id}${data.order ? ` [${data.order}]` : ''}</div>`;
+                }
+            }]);
+
+            // Global functions for button actions
+            window.addNode = function() {
+                nodeCounter++;
+                const newId = `node${nodeCounter}`;
+                cy.add({
+                    data: {
+                        id: newId, 
+                        name: `Node ${nodeCounter}`, 
+                        order: nodeCounter
+                    }
+                });
+                cy.layout({ name: 'grid', cols: 3 }).run();
+            };
+
+            window.updateNodeData = function() {
+                const node = cy.$('#node1');
+                if (node.length > 0) {
+                    const currentData = node.data();
+                    node.data('name', `Updated ${currentData.name} (${Date.now()})`);
+                }
+            };
+
+            window.clearEvents = function() {
+                eventsDiv.innerHTML = '';
+                eventCounter = 0;
+            };
+
+            logEvent('Extension initialized and listening for htmlLabelUpdated events');
+        });
+    </script>
+</body>
+</html>
