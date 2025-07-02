@@ -76,7 +76,7 @@ interface CytoscapeContainerParams {
       data = null
     }: ILabelElement,
       params: CytoscapeNodeHtmlParams,
-      cy?: any) {
+      cy: any) {
 
       this.updateParams(params);
       this._node = node;

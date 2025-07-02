@@ -16,11 +16,12 @@
         return undefined;
     };
     var LabelElement = (function () {
-        function LabelElement(_a, params) {
+        function LabelElement(_a, params, cy) {
             var node = _a.node, _b = _a.position, position = _b === void 0 ? null : _b, _c = _a.data, data = _c === void 0 ? null : _c;
             this.updateParams(params);
             this._node = node;
             this._data = data;
+            this._cy = cy;
             this.initStyles(params.cssClass);
             if (data) {
                 this.updateData(data);
@@ -67,6 +68,13 @@
         };
         LabelElement.prototype.updatePosition = function (pos) {
             this._renderPosition(pos);
+            this._cy && this._cy.emit('htmlLabelUpdated', {
+                id: this._node.id,
+                isUpdate: true,
+                position: pos,
+                data: this._data,
+                node: this._node
+            });
         };
         LabelElement.prototype.initStyles = function (cssClass) {
             var stl = this._node.style;
@@ -101,7 +109,6 @@
         LabelContainer.prototype.addOrUpdateElem = function (id, param, payload) {
             if (payload === void 0) { payload = {}; }
             var cur = this._elements[id];
-            var isUpdate = !!cur;
             if (cur) {
                 var oldData = cur.getData();
                 var newOrder = payload.data && typeof payload.data.order === 'number' ? payload.data.order : undefined;
@@ -132,15 +139,15 @@
                     node: nodeElem,
                     data: payload.data,
                     position: payload.position
-                }, param);
+                }, param, this._cy);
+                this._cy.emit('htmlLabelUpdated', {
+                    id: id,
+                    isUpdate: false,
+                    data: payload.data,
+                    position: payload.position,
+                    node: this._elements[id].getNode()
+                });
             }
-            this._cy.emit('htmlLabelUpdated', {
-                id: id,
-                isUpdate: isUpdate,
-                data: payload.data,
-                position: payload.position,
-                node: this._elements[id].getNode()
-            });
         };
         LabelContainer.prototype.removeElemById = function (id) {
             if (this._elements[id]) {
