@@ -68,17 +68,20 @@ interface CytoscapeContainerParams {
     private _node: HTMLElement;
     private _align: [number, number, number, number];
     private _data: any; // Store data reference for order checking
+    private _cy: any;
 
     constructor({
-                  node,
-                  position = null,
-                  data = null
-                }: ILabelElement,
-                params: CytoscapeNodeHtmlParams) {
+      node,
+      position = null,
+      data = null
+    }: ILabelElement,
+      params: CytoscapeNodeHtmlParams,
+      cy?: any) {
 
       this.updateParams(params);
       this._node = node;
       this._data = data; // Store data reference
+      this._cy = cy;
 
       this.initStyles(params.cssClass);
 
@@ -91,14 +94,14 @@ interface CytoscapeContainerParams {
     }
 
     updateParams({
-                   tpl = () => "",
-                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                   cssClass = null,
-                   halign = "center",
-                   valign = "center",
-                   halignBox = "center",
-                   valignBox = "center"
-                 }: CytoscapeNodeHtmlParams) {
+      tpl = () => "",
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      cssClass = null,
+      halign = "center",
+      valign = "center",
+      halignBox = "center",
+      valignBox = "center"
+    }: CytoscapeNodeHtmlParams) {
 
       const _align = {
         "top": -.5,
@@ -120,14 +123,14 @@ interface CytoscapeContainerParams {
 
     updateData(data: any) {
       this._data = data; // Update stored data reference
-      
+
       while (this._node.firstChild) {
         this._node.removeChild(this._node.firstChild);
       }
 
       const children = new DOMParser()
-          .parseFromString(this.tpl(data), "text/html")
-          .body.children;
+        .parseFromString(this.tpl(data), "text/html")
+        .body.children;
 
       for (let i = 0; i < children.length; ++i) {
         const el = children[i];
@@ -145,6 +148,13 @@ interface CytoscapeContainerParams {
 
     updatePosition(pos: ICytoscapeNodeHtmlPosition) {
       this._renderPosition(pos);
+      this._cy && this._cy.emit('htmlLabelUpdated', {
+        id: this._node.id,
+        isUpdate: true,
+        position: pos,
+        data: this._data,
+        node: this._node
+      });
     }
 
     private initStyles(cssClass: string) {
@@ -192,22 +202,21 @@ interface CytoscapeContainerParams {
 
     addOrUpdateElem(id: string, param: CytoscapeNodeHtmlParams, payload: { data?: any, position?: ICytoscapeNodeHtmlPosition } = {}) {
       const cur = this._elements[id];
-      const isUpdate = !!cur;
-      
+
       if (cur) {
         const oldData = cur.getData();
         const newOrder = payload.data && typeof payload.data.order === 'number' ? payload.data.order : undefined;
         const oldOrder = oldData && typeof oldData.order === 'number' ? oldData.order : undefined;
-        
+
         cur.updateParams(param);
         cur.updateData(payload.data);
         cur.updatePosition(payload.position);
-        
+
         // Check if order has changed and reorder if necessary
         if (newOrder !== oldOrder) {
           const nodeElem = cur.getNode();
           this._node.removeChild(nodeElem);
-          
+
           if (typeof newOrder === 'number') {
             this._insertElementAtOrder(nodeElem, newOrder);
           } else {
@@ -216,7 +225,7 @@ interface CytoscapeContainerParams {
         }
       } else {
         const nodeElem = document.createElement("div");
-        
+
         // Check if data has an order attribute to determine insertion position
         if (payload.data && typeof payload.data.order === 'number') {
           this._insertElementAtOrder(nodeElem, payload.data.order);
@@ -229,17 +238,17 @@ interface CytoscapeContainerParams {
           node: nodeElem,
           data: payload.data,
           position: payload.position
-        }, param);
+        }, param, this._cy);
+
+        // Emit custom event
+        this._cy.emit('htmlLabelUpdated', {
+          id: id,
+          isUpdate: false,
+          data: payload.data,
+          position: payload.position,
+          node: this._elements[id].getNode()
+        });
       }
-      
-      // Emit custom event
-      this._cy.emit('htmlLabelUpdated', {
-        id: id,
-        isUpdate: isUpdate,
-        data: payload.data,
-        position: payload.position,
-        node: this._elements[id].getNode()
-      });
     }
 
     removeElemById(id: string) {
@@ -256,7 +265,7 @@ interface CytoscapeContainerParams {
       }
     }
 
-    updatePanZoom({pan, zoom}: { pan: { x: number, y: number }, zoom: number }) {
+    updatePanZoom({ pan, zoom }: { pan: { x: number, y: number }, zoom: number }) {
       const val = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
       const stl = <any>this._node.style;
       const origin = "top left";
@@ -272,17 +281,17 @@ interface CytoscapeContainerParams {
     private _insertElementAtOrder(nodeElem: HTMLElement, order: number) {
       const children = this._node.children;
       let insertIndex = children.length; // Default to end if no ordered position found
-      
+
       // Find the correct insertion point based on order
       // Elements with same order value will be inserted after existing ones (stable sort)
       for (let i = 0; i < children.length; i++) {
         const child = children[i] as HTMLElement;
         const childId = this._getElementIdByNode(child);
-        
+
         if (childId) {
           const childElement = this._elements[childId];
           const childData = this._getElementData(childElement);
-          
+
           // Insert before the first element with a strictly higher order
           // This ensures elements with same order maintain insertion order
           if (childData && typeof childData.order === 'number' && childData.order > order) {
@@ -291,7 +300,7 @@ interface CytoscapeContainerParams {
           }
         }
       }
-      
+
       // Insert at the determined position
       if (insertIndex >= children.length) {
         this._node.appendChild(nodeElem);
@@ -363,7 +372,7 @@ interface CytoscapeContainerParams {
       return new LabelContainer(_titlesContainer, _cy);
     }
 
-    function createNodesCyHandler({cy}: ICyEventObject) {
+    function createNodesCyHandler({ cy }: ICyEventObject) {
       _params.forEach(x => {
         cy.elements(x.query).forEach((d: any) => {
           if (d.isNode()) {
@@ -387,7 +396,7 @@ interface CytoscapeContainerParams {
       }
     }
 
-    function layoutstopHandler({cy}: ICyEventObject) {
+    function layoutstopHandler({ cy }: ICyEventObject) {
       _params.forEach(x => {
         cy.elements(x.query).forEach((d: any) => {
           if (d.isNode()) {
@@ -421,7 +430,7 @@ interface CytoscapeContainerParams {
       }, 0);
     }
 
-    function wrapCyHandler({cy}: ICyEventObject) {
+    function wrapCyHandler({ cy }: ICyEventObject) {
       _lc.updatePanZoom({
         pan: cy.pan(),
         zoom: cy.zoom()
